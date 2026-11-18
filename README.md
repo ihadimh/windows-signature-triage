@@ -1,81 +1,77 @@
-# dsh-skills
+# windows-signature-triage
 
-给 [DeepSeek Harness](https://github.com/deepseek-ai) 用的技能集合。每个技能是一份写给人看、也写给 agent 看**操作手册**，装上之后 agent 遇到对应场景会自动套用这套流程。
+给 [DeepSeek Harness](https://github.com/deepseek-ai)（以及任何采用 `.agents/skills` 约定的 agent）用的**一个**技能：Windows 签名故障排查。
 
-## 有哪些技能
+装上之后，当你说"这个 exe 提示签名无效"、"证书不受信任"、"无法验证此文件的签名"时，agent 会自动按这套流程走，而不是猜。
 
-| 技能 | 什么时候用 | 说明 |
-|---|---|---|
-| [`windows-signature-triage`](windows-signature-triage/SKILL.md) | Windows 报"签名无效/无法验证/证书过期/不受信任" | 区分"证书真的坏了"与"只是查不到吊销状态"。附带"四问决策树"和一份红线清单 |
+## 它解决什么
+
+系统报"签名无效"至少有四种完全不同的原因，**处置方式相反**：
+
+| 现象 | 常见误判 | 真实原因 | 正确处置 |
+|---|---|---|---|
+| `OfflineRevocation` | 证书坏了 | 网络不通 / OCSP 被墙 | 换网络，别删证书 |
+| `NotSigned` | 文件被篡改 | 可能只是**目录签名** | 查 `.cat`，别重装系统 |
+| 签名者证书已过期 | 签名失效 | 有时间戳则**仍然有效** | 验时间戳，别重签 |
+| `NotTrusted` | 根证书有毒 | 缺中间证书 | 装中间证书 |
+
+技能内容包含：四问决策树、命令模板、输出解读、以及一份**红线清单**（不许建议关校验、关杀软、加白名单、删根证书）。
 
 ## 安装
 
-### 方式一：一键脚本
+**方式一：clone 到技能目录**（推荐）
 
 ```powershell
-irm https://raw.githubusercontent.com/ihadimh/dsh-skills/main/install.ps1 | iex
+git clone https://github.com/ihadimh/windows-signature-triage.git "$env:USERPROFILE\.dsh\skills\windows-signature-triage"
 ```
 
-### 方式二：git clone
+目录名必须和仓库名一致——DSH 按 `<技能名>/SKILL.md` 发现技能。
+
+**方式二：只复制文件**
 
 ```powershell
-git clone https://github.com/ihadimh/dsh-skills.git "$env:TEMP\dsh-skills"
-Copy-Item "$env:TEMP\dsh-skills\*\SKILL.md" -Destination "$env:USERPROFILE\.dsh\skills" -Force -Recurse
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.dsh\skills\windows-signature-triage"
+curl.exe -L -o "$env:USERPROFILE\.dsh\skills\windows-signature-triage\SKILL.md" `
+  https://raw.githubusercontent.com/ihadimh/windows-signature-triage/main/SKILL.md
 ```
 
-> 注意：上面这条要求 `.dsh\skills` 下已有同名目录；不确定就先手动建目录再复制。
+**方式三：脚本**
 
-### 方式三：手动
-
-把 `windows-signature-triage/SKILL.md` 复制到：
-
-```
-C:\Users\<你>\.dsh\skills\windows-signature-triage\SKILL.md
+```powershell
+.\install.ps1
 ```
 
-**目录名必须和 frontmatter 里的 `name` 一致**，否则会被静默忽略。
+装完**重启会话**生效。验证：问一句"你有哪些 skill"。
 
-## 安装到哪里
+## 装在哪
 
-DSH 按下面的顺序扫描技能根目录（rank 小的优先）：
-
-| Rank | 路径 | 适用 |
+| 位置 | 作用范围 | 优先级 |
 |---|---|---|
-| 100 | `<项目根>\.dsh\skills` | 团队共享，跟仓库走 |
-| 200 | `<项目根>\.agents\skills` | 同上（通用约定） |
-| 300 | 配置项 `customSkillDirs` | 自定义 |
-| 400 | `C:\Users\<你>\.dsh\skills` | **个人全局（推荐）** |
-| 500 | `<agentsHome>\skills` | 其他 agent 工具共用 |
+| `<项目>\.dsh\skills` | 该项目 + 团队 | 100 |
+| `<项目>\.agents\skills` | 同上（通用约定） | 200 |
+| `%USERPROFILE%\.dsh\skills` | 本机所有项目 | 400 |
 
-## 格式要求
+个人用选第三个，团队共享选第一个（跟仓库走）。
 
-```markdown
----
-name: windows-signature-triage        # 必填，需与目录名一致
-description: 一句话说明何时该用我       # 必填，模型靠它决定是否选中
-whenToUse: 更细的触发条件              # 可选
-metadata:                             # 可选
-  author: you
-disable-model-invocation: false       # 可选，true = 模型看不到
-user-invocable: true                  # 可选，false = 不出现在人工命令里
----
+## 配合使用
 
-# 正文（操作手册）
+这个技能会调用 [certdiag](https://github.com/ihadimh/certdiag) 做实际诊断：
+
+```bash
+python -m certdiag "C:\path\to\app.exe"
 ```
 
-几个坑：
+没装 certdiag 也能用——技能里带了 `Get-AuthenticodeSignature`、`sigcheck` 等替代手段的判断流程。
 
-- 只认 `<root>/<name>/SKILL.md` 或 `<root>/<name>.md`，**嵌套的 `**/SKILL.md` 不会被发现**
-- 布尔字段写错（比如 `disable-model-invocation: 是`）会导致**整个技能被丢弃**，且没有明显报错
+## 格式说明
+
+DSH 只认两种形态：`<root>/<name>/SKILL.md` 或 `<root>/<name>.md`，**嵌套的 `**/SKILL.md` 不会被发现**。
+
+frontmatter 必填 `name` 和 `description`。几个坑：
+
+- `name` 必须与目录名一致
+- 布尔类字段写错（如 `disable-model-invocation: 是`）会导致整个技能被静默丢弃
 - 改正文不用重启；改 `name` 或新增技能需要重新扫描
-
-## 校验
-
-仓库里的技能可以用 certdiag 自带的校验脚本检查：
-
-```powershell
-python tools/check_skill.py
-```
 
 ## 许可
 
