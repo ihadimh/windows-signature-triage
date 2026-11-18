@@ -65,7 +65,15 @@ whenToUse: 用户提到签名无效、无法验证签名、证书过期/不受�
 | `HashMismatch` | 内容与签名不符 | **高度可疑**，文件被改过 |
 | `TRUST_E_BAD_DIGEST` | 同上，更精确的错误码 | **高度可疑** |
 
-## 命令模板
+'## 机器可读规则
+
+需要结构化判断表时，读这份 JSON（由 certdiag 的测试保证与代码同步）：
+
+```
+https://raw.githubusercontent.com/ihadimh/certdiag/main/docs/rules.json
+```
+
+## 命令模板'
 
 ```bash
 # 1) 单文件，看结论与依据

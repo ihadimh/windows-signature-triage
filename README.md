@@ -53,7 +53,24 @@ curl.exe -L -o "$env:USERPROFILE\.dsh\skills\windows-signature-triage\SKILL.md" 
 
 个人用选第三个，团队共享选第一个（跟仓库走）。
 
-## 配合使用
+'## 机器可读的归因规则
+
+如果想让 agent 直接读结构化规则（而不是从 Markdown 里抠），用这份：
+
+**https://raw.githubusercontent.com/ihadimh/certdiag/main/docs/rules.json**
+
+```json
+{"version": 1, "verdicts": ["valid","invalid","unknown"],
+ "rules": [{"id":"revocation_unreachable","verdict":"unknown",
+            "title":"吊销查询地址不可达",
+            "when":"系统报 OfflineRevocation 且 CRL/OCSP 访问失败",
+            "action":"网络问题：换网络/配代理；不要删除证书"}],
+ "red_lines": ["不建议关闭签名校验 / 关闭杀软 / 加入白名单", "..."]}
+```
+
+它由 certdiag 的覆盖率测试保证与代码同步——**代码里出现的每个分类都必须在这张表里有说明**。
+
+## 配合使用'
 
 这个技能会调用 [certdiag](https://github.com/ihadimh/certdiag) 做实际诊断：
 
