@@ -1,7 +1,7 @@
 ---
 name: windows-signature-triage
 description: 诊断 Windows 代码签名失败（签名无效、证书不受信任、证书过期、"无法验证此文件的签名"、哈希不匹配、文件疑似损坏），区分"证书真的坏了""只是查不到吊销状态""文件本身不完整"三种情况。当用户报告签名错误、要求验证下载/分发的 exe/dll、或问"为什么 Windows 说这个程序签名无效"时使用。
-whenToUse: 用户提到签名无效、无法验证签名、证书过期/不受信任/被吊销、哈希不匹配，或需要批量校验一堆可执行文件的签名时。
+whenToUse: 用户提到签名无效、无法验证签名、证书过期/不受信任/被吊销、哈希不匹配，或需要批量校验一堆可执行文件的签名时。Also use for: "signature invalid", "untrusted certificate", "this app can't run", "verify Authenticode signature of a downloaded exe/dll".
 ---
 
 # Windows 签名故障排查
@@ -66,7 +66,7 @@ whenToUse: 用户提到签名无效、无法验证签名、证书过期/不受�
 
 时间戳的边界：只验"令牌本身没被篡改"不等于"可信时间戳"。
 完整校验还需要 messageImprint 绑定、TSA 用途（EKU）、TSA 链时效——certdiag 不做这三项，
-需要完整结论时用 `signtool verify /pa /t`。
+需要完整结论时用 `signtool verify /pa /t`（需装 Windows SDK）。
 
 ### 四问：是"没签名"、"签名对不上"，还是"文件坏了"？
 
@@ -91,6 +91,16 @@ certdiag 的 `--revoke` 有四档，结论措辞跟着档位走：
 | `online` | 强制联网（慢，2~30 秒） | 同上 |
 
 只有真的拿到结果才会出现 `valid_revocation_checked_ok`；被吊销则直接 `invalid`。
+
+## 先确认工具在哪
+
+| 情况 | 怎么做 |
+|---|---|
+| 有便携版 | 解压 `certdiag-portable-*.zip`，用 `runtime\python.exe -m certdiag` |
+| 有源码 | 在仓库目录用 `python -m certdiag`（纯标准库，无需 pip） |
+| 都没有 | 用下面的 PowerShell 替代流程，不要硬编一个"结论" |
+
+便携版在 Release 里：`https://github.com/ihadimh/certdiag/releases`（约 11 MB，自带运行时，免装 Python）。
 
 ## 命令模板
 
@@ -117,11 +127,22 @@ python -m certdiag app.exe --json report.json
 没有 certdiag 时的等价手段：
 
 ```powershell
-Get-AuthenticodeSignature <文件> | Format-List Status, StatusMessage, SignerCertificate
-certutil -verify -urlfetch <文件>      # 精确错误码
-sigcheck -a <文件>                     # Sysinternals，看 Catalog
-certutil -error 0x800B010D             # 核对错误码含义
+# 1) 粗状态（会回退查目录签名）
+Get-AuthenticodeSignature .\app.exe | Format-List Status, StatusMessage, SignerCertificate
+
+# 2) 想看链和吊销抓取日志：certutil 只接受证书文件，先导出签名者证书
+$c = (Get-AuthenticodeSignature .\app.exe).SignerCertificate
+[IO.File]::WriteAllBytes("$env:TEMP\signer.cer", $c.Export('Cert'))
+certutil -verify -urlfetch "$env:TEMP\signer.cer"
+
+# 3) 看目录签名（需 Sysinternals）
+sigcheck -a .\app.exe
+
+# 4) 核对错误码含义
+certutil -error 0x800B010D
 ```
+
+> 踩过的坑：`certutil -verify` 直接喂 exe 会报 `CRYPT_E_ASN1_BADTAG`——它只解析证书容器。
 
 ## 输出解读
 

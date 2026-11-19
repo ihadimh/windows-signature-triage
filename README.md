@@ -19,26 +19,30 @@
 
 ## 安装
 
-**方式一：clone 到技能目录**（推荐）
+**方式一：脚本（推荐）**
+
+```powershell
+.\install.ps1
+```
+
+脚本会优先用同目录的 `SKILL.md`；没有就依次从 GitHub、ghproxy、gitmirror 下载。
+**写出的是无 BOM 的 UTF-8**——带 BOM 会让 frontmatter 解析失败，技能被静默丢弃（这个坑已经踩过）。
+
+**方式二：git clone**
 
 ```powershell
 git clone https://github.com/ihadimh/windows-signature-triage.git "$env:USERPROFILE\.dsh\skills\windows-signature-triage"
 ```
 
 目录名必须和仓库名一致——DSH 按 `<技能名>/SKILL.md` 发现技能。
+国内网络访问 github.com 经常超时，连不上就用方式一或方式三。
 
-**方式二：只复制文件**
+**方式三：只复制文件**
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.dsh\skills\windows-signature-triage"
 curl.exe -L -o "$env:USERPROFILE\.dsh\skills\windows-signature-triage\SKILL.md" `
   https://raw.githubusercontent.com/ihadimh/windows-signature-triage/main/SKILL.md
-```
-
-**方式三：脚本**
-
-```powershell
-.\install.ps1
 ```
 
 装完**重启会话**生效。验证：问一句"你有哪些 skill"。

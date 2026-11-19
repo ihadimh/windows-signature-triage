@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     安装 windows-signature-triage 技能到本机 DSH。
 
@@ -50,7 +50,10 @@ if ($local -and (Test-Path $local)) {
         try {
             $r = Invoke-WebRequest -Uri $u -UseBasicParsing -TimeoutSec 20
             if ($r.StatusCode -eq 200 -and $r.Content -match "^---") {
-                Set-Content -Path $Target -Value $r.Content -Encoding UTF8
+                # 必须写成“无 BOM 的 UTF-8”：带 BOM 时 SKILL.md 的 frontmatter
+                # 会解析失败，技能会被静默丢弃（PS 5.1 的 -Encoding UTF8 会加 BOM）
+                $text = ($r.Content -replace "`r`n", "`n")
+                [System.IO.File]::WriteAllText($Target, $text, (New-Object System.Text.UTF8Encoding($false)))
                 Ok "已下载"
                 $done = $true
                 break
