@@ -47,6 +47,22 @@ curl.exe -L -o "$env:USERPROFILE\.dsh\skills\windows-signature-triage\SKILL.md" 
 
 装完**重启会话**生效。验证：问一句"你有哪些 skill"。
 
+### 装完先自检
+
+```powershell
+.\verify-install.ps1
+```
+
+它会检查三类**不会报错、只会让技能静默消失**的问题：
+
+| 检查 | 后果 |
+|---|---|
+| 文件带 UTF-8 BOM | frontmatter 解析失败，技能不被加载 |
+| frontmatter 的值里有 `: ` | YAML 当成嵌套映射，整段解析失败 |
+| `name` 与安装目录名不一致 | 扫描不到 |
+
+前两条都真的发生过一次。脚本还会模拟安装一遍，并在有 `install.ps1` 时跑一次端到端安装。
+
 ## 装在哪
 
 | 位置 | 作用范围 | 优先级 |
@@ -102,6 +118,15 @@ frontmatter 必填 `name` 和 `description`。几个坑：
 - `name` 必须与目录名一致
 - 布尔类字段写错（如 `disable-model-invocation: 是`）会导致整个技能被静默丢弃
 - 改正文不用重启；改 `name` 或新增技能需要重新扫描
+
+## 已知限制
+
+| 项 | 说明 |
+|---|---|
+| `git clone` 在国内常超时 | 优先用 `install.ps1`（带 ghproxy / gitmirror 镜像回退） |
+| 需要 `signtool` 的步骤 | 它属于 Windows SDK，默认没装；技能里已标注 |
+| `sigcheck` | Sysinternals 单独下载；技能里已标注 |
+| 正文是中文 | 触发描述里加了英文关键词，英文提问也能命中 |
 
 ## 许可
 
