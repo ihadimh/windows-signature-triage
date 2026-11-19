@@ -1,7 +1,7 @@
 ---
 name: windows-signature-triage
 description: 诊断 Windows 代码签名失败（签名无效、证书不受信任、证书过期、"无法验证此文件的签名"、哈希不匹配、文件疑似损坏），区分"证书真的坏了""只是查不到吊销状态""文件本身不完整"三种情况。当用户报告签名错误、要求验证下载/分发的 exe/dll、或问"为什么 Windows 说这个程序签名无效"时使用。
-whenToUse: 用户提到签名无效、无法验证签名、证书过期/不受信任/被吊销、哈希不匹配，或需要批量校验一堆可执行文件的签名时。Also use for: "signature invalid", "untrusted certificate", "this app can't run", "verify Authenticode signature of a downloaded exe/dll".
+whenToUse: 用户提到签名无效、无法验证签名、证书过期/不受信任/被吊销、哈希不匹配，或需要批量校验可执行文件的签名时。英文触发词包括 signature invalid、untrusted certificate、verify Authenticode signature、this app can not run。
 ---
 
 # Windows 签名故障排查
