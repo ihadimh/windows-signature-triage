@@ -85,8 +85,8 @@ certdiag 的 `--revoke` 有四档，结论措辞跟着档位走：
 
 | 档位 | 行为 | 结论 |
 |---|---|---|
-| `off`（默认） | 不查，报告写「吊销：未检查（--revoke=off）」 | `valid_revocation_unchecked`（medium） |
-| `cache` | 只读本地 CRL 缓存，毫秒级 | 命中 → `checked_ok`；未命中 → 未检查 |
+| `cache`（默认） | 只读本地 CRL 缓存，约 +15 ms/文件 | 命中 → `checked_ok`；未命中 → 未检查 |
+| `off` | 不查，报告写「吊销：未检查（--revoke=off）」 | `valid_revocation_unchecked`（medium） |
 | `auto` | 先探地址，可达才联网查 | 查到 → `checked_ok`；不可达 → 未检查 + 原因 |
 | `online` | 强制联网（慢，2~30 秒） | 同上 |
 
@@ -108,8 +108,11 @@ certdiag 的 `--revoke` 有四档，结论措辞跟着档位走：
 # 1) 单文件，看结论与依据
 python -m certdiag "C:\path\to\app.exe"
 
-# 2) 想知道吊销状态（推荐 auto：先探路再决定要不要查）
+# 2) 默认就是 cache（读本地缓存）；要彻底查用 auto（先探路再联网）
 python -m certdiag app.exe --revoke=auto
+
+# 2b) 只对能保证的事下结论：证据不足就判 unknown
+python -m certdiag app.exe --strict
 
 # 3) 完全离线（不探测、不联网查吊销、不下载中间证书）
 python -m certdiag app.exe --offline
@@ -167,6 +170,19 @@ certutil -error 0x800B010D
 | `corrupt_pe` / `not_pe_file` | 文件不完整 / 内容不是 PE |
 | `hresult:TRUST_E_BAD_DIGEST` | 内容被改过，**可疑** |
 | `valid` + 「签名证书表之后还有 N 字节」 | 签名覆盖范围之外有数据；可能是合法 overlay，也可能是追加内容（CVE-2013-3900 类），**与发布者哈希核对** |
+
+## 严格模式：证据不足不下结论
+
+`--strict` 下，任何影响结论的缺口（吊销未查、时间戳绑定未验、采集失败）都会把结论降为
+`unknown`，而不是给 `valid`。强证据（哈希不匹配、显式不信任、已吊销）不受影响。
+
+拿结论做决定（门禁、审批、发布）时应当用：
+
+```
+--strict --fail-on unknown --require-signature --revoke=auto
+```
+
+注意：`--no-probe` 与 `--revoke=auto` 同时用会让 auto 退化为"不查"。
 
 ## 退出码
 
